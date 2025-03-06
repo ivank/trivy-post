@@ -16,7 +16,7 @@ ENV PATH="${TRIVY_HOME}:${PATH}"
 
 RUN apk add --no-cache curl bash openssl jq
 RUN curl --location https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz | tar x -z -C $TRIVY_HOME
-RUN curl --location https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_amd64.tar.gz | tar --strip-components=2 x -z -C /usr/local/bin gh_${GH_VERSION}_linux_amd64/bin/gh
+RUN curl --location https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_amd64.tar.gz | tar --strip-components=2 -xzC /usr/local/bin gh_${GH_VERSION}_linux_amd64/bin/gh
 RUN curl --location https://github.com/GoogleCloudPlatform/berglas/releases/download/v${BERGLAS_VERSION}/berglas_${BERGLAS_VERSION}_linux_amd64.tar.gz | tar -xzC /usr/local/bin
 
 COPY ./trivy-post.sh /builder/trivy-post.sh
