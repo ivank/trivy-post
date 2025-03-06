@@ -19,7 +19,7 @@
 
 | Type | Misconf ID | Check | Severity | Message |
 | ---- | ---------- | ----- | -------- | ------- |
-{{- range .Vulnerabilities }}
+{{- range .Misconfigurations }}
 | {{ escapeXML .Type }} | {{ escapeXML .ID }} | {{ escapeXML .Title }} | {{ escapeXML .Severity }} | {{ escapeXML .Message }}<br><a href={{ escapeXML .PrimaryURL | printf "%q" }}>{{ escapeXML .PrimaryURL }}</a> |
 
 {{- end }}

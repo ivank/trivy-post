@@ -248,8 +248,8 @@ for arg in "${!REQUIRED_ARGS[@]}"; do
 	fi
 done
 
-if [ "$SCAN_TYPE" != "image" ] && [ "$MODE" != "config" ]; then
-	error "Mode must be either 'image' or 'config'"
+if [ "$SCAN_TYPE" != "image" ] && [ "$SCAN_TYPE" != "config" ]; then
+	error "Scan type must be either 'image' or 'config'"
 fi
 
 if ! [[ "$REPO" =~ ^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$ ]]; then
@@ -319,9 +319,7 @@ fi
 
 # Trivy run
 # ------------------------------------------------------------
-
 OUTPUT=$(trivy "$SCAN_TYPE" "$REF" --format template --template "@$TEMPLATE")
-
 BODY=$(
 	cat <<-EOL
 		$TITLE
