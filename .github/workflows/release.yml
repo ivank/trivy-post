@@ -1,0 +1,45 @@
+name: Publish Docker image on release
+on:
+  release:
+    types: [published]
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/install-shunit2
+      - uses: sigoden/install-binary@v1
+        with:
+          repo: GoogleCloudPlatform/berglas
+      - name: Run tests
+        run: test/trivy-post.test.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/ivank/trivy-post
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
