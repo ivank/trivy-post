@@ -1,6 +1,6 @@
-# Terraform Plan Post
+# Trivy Post
 
-A dockerized bash script that posts trivy output to a GitHub Pull Request as a comment.
+A dockerized bash script that posts [trivy](https://trivy.dev/) output to a GitHub Pull Request as a comment.
 Suitable for use in Google Cloud Build.
 
 ## Usage
