@@ -14,6 +14,15 @@ steps:
       docker build -t my-image:$REVISION_ID .
       docker push my-image:$REVISION_ID
 
+  - id: Analyze
+    name: aquasec/trivy
+    args:
+      - image
+      - my-image:$REVISION_ID
+      - format=template
+      - template=./template.md.tpl
+      - output=./trivy-output.md
+
   - id: Post
     name: ghcr.io/ivank/trivy-post:1.0.0
     env:
