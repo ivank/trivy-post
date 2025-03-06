@@ -12,14 +12,11 @@ TOKEN="${TOKEN:-}"
 APP_ID="${APP_ID:-}"
 INSTALLATION_KEY="${INSTALLATION_KEY:-}"
 PR_NUMBER="${PR_NUMBER:-}"
+MODE="${MODE:-recreate}"
 REPO="${REPO:-}"
 
 # Trivy config
-SCAN_TYPE="${SCAN_TYPE:-image}"
-REF="${REF:-}"
-TEMPLATE="${TEMPLATE:-template.md.tpl}"
-export TRIVY_PKG_TYPES="${TRIVY_PKG_TYPES:-library}"
-export TRIVY_SEVERITY="${TRIVY_SEVERITY:-HIGH,CRITICAL}"
+TRIVY_OUTPUT_FILE="${TRIVY_OUTPUT_FILE:-./trivy-output.md}"
 
 # Post config
 TITLE="${TITLE:-### Generated [Trivy](https://trivy.dev) Result}"
@@ -57,7 +54,6 @@ declare -A OPTIONAL_COMMANDS
 
 REQUIRED_COMMANDS["jq"]="https://jqlang.github.io/jq/download/"
 REQUIRED_COMMANDS["gh"]="https://cli.github.com/"
-REQUIRED_COMMANDS["trivy"]="https://github.com/aquasecurity/trivy"
 
 OPTIONAL_COMMANDS["berglas"]="https://github.com/GoogleCloudPlatform/berglas?tab=readme-ov-file#installation"
 OPTIONAL_COMMANDS["openssl"]="https://openssl.org/"
@@ -100,13 +96,13 @@ Those can also be provided as environment variables.
     ${GREEN}APP_ID${END}=1234 ${GREEN}INSTALLATION_KEY${END}=sm://my-project/my-installation-key ${CYAN}$(basename "$0")${END}
 
 Additionally you need to provide the PR number, repository.
-Also expects that you provide the reference to the image / folder that you wish to scan.
-You can override this with ${PINK}--ref${END} (or ${GREEN}\$REF${END})
+Also expects the trivy text output (in markdown) to be located at \"$TRIVY_OUTPUT_FILE\".
+You can override this with ${PINK}--trivy-output-file${END} (or ${GREEN}\$TRIVY_OUTPUT_FILE${END})
 
     ${CYAN}$(basename "$0")${END} ${PINK}--pr-number${END}=1234 ${PINK}--repo${END}=org/repo
     ${GREEN}PR_NUMBER${END}=1234 ${GREEN}REPO${END}=org/repo ${CYAN}$(basename "$0")${END}
-    ${CYAN}$(basename "$0")${END} ${PINK}--pr-number${END}=1234 ${PINK}--repo${END}=org/repo ${PINK}--scan-type${END}=config ${PINK}--ref${END}=./terraform-folder
-    ${GREEN}PR_NUMBER${END}=1234 ${GREEN}REPO${END}=org/repo ${GREEN}SCAN_TYPE${END}=config ${GREEN}REF${END}=./terraform-folder ${CYAN}$(basename "$0")${END}
+    ${CYAN}$(basename "$0")${END} ${PINK}--pr-number${END}=1234 ${PINK}--repo${END}=org/repo ${PINK}--trivy-output-file${END}=./other-output.txt
+    ${GREEN}PR_NUMBER${END}=1234 ${GREEN}REPO${END}=org/repo ${GREEN}TRIVY_OUTPUT_FILE${END}=./other-output.txt ${CYAN}$(basename "$0")${END}
 
 Examples:
 
@@ -114,7 +110,7 @@ Examples:
       ${PINK}--pr-number${END}=1234 \\
       ${PINK}--repo${END}=org/repo \\
       ${PINK}--token${END}=sm://my-project/my-github-token \\
-      ${PINK}--ref${END}=my-image:12.23.2
+      ${PINK}--trivy-output-file${END}=./other.txt
 
     ${CYAN}$(basename "$0")${END} \\
       ${PINK}--plan${END}='-chdir=./terraform' \\
@@ -122,16 +118,12 @@ Examples:
       ${PINK}--pr-number${END}=1234 \\
       ${PINK}--repo${END}=org/repo \\
       ${PINK}--token${END}=1234
-			${PINK}--ref${END}=my-image:12.23.2
 
     ${CYAN}$(basename "$0")${END} \\
       ${PINK}--pr-number${END}=1234 \\
       ${PINK}--repo${END}=org/repo \\
       ${PINK}--app-id${END}=1234 \\
       ${PINK}--installation-key${END}=sm://my-project/my-installation-key
-			${PINK}--scan-type${END}=config
-			${PINK}--ref${END}=./terraform-configs
-
 
 Options:
 
@@ -148,11 +140,11 @@ Options:
   ${PINK}${END}                           ${RED}REQUIRED${END} if ${CYAN}--app-id${END} is provided, Example: sm://my-project/my-installation-key)
   ${PINK}--pr-number${END}=value          ${RED}REQUIRED${END} Pull Request number (or ENV: ${GREEN}\$PR_NUMBER${END})
   ${PINK}--repo${END}=value               ${RED}REQUIRED${END} Repository, Example: org/repo (or ENV ${GREEN}\$REPO${END})
-  ${PINK}--ref${END}=value                Terraform plan text output (or error output)
-  ${PINK}${END}                           (or ENV: ${GREEN}\$REF${END})
+  ${PINK}--trivy-output-file${END}=value  Trivy text output (in markdown format)
+  ${PINK}${END}                           (DEFAULT: \"${CYAN}$TRIVY_OUTPUT_FILE${END}\", or ENV: ${GREEN}\$TRIVY_OUTPUT_FILE${END})
   ${PINK}--title${END}=value              Title for the review comment (DEFAULT: \"${CYAN}$TITLE${END}\", or ENV: ${GREEN}\$TITLE${END})
-  ${PINK}--scan-type${END}=config|image   TYpe of trivy scan
-  ${PINK}${END}                           (DEFAULT: \"${CYAN}$SCAN_TYPE${END}\", possible values: config, image or ENV: ${GREEN}\$SCAN_TYPE${END})
+  ${PINK}--mode${END}=recreate|update     Mode for the plan
+  ${PINK}${END}                           (DEFAULT: \"${CYAN}$MODE${END}\", possible values: recreate, update or ENV: ${GREEN}\$MODE${END})
   ${PINK}--dry-run${END}                  Output the contents of the comment instead of sending it to GitHub
   ${PINK}--identifier${END}               Identify the tf-plan-post's comment with this text
   ${PINK}${END}                           (DEFAULT: \"$IDENTIFIER\", or ENV: ${GREEN}\$IDENTIFIER${END})
@@ -161,7 +153,6 @@ Options:
 Other binaries in PATH used by this script:
 Required: ${RED}${!REQUIRED_COMMANDS[*]}${END}
 Optional: ${RED}${!OPTIONAL_COMMANDS[*]}${END}"
-
 for i in "$@"; do
 	case $i in
 	--help)
@@ -200,24 +191,12 @@ for i in "$@"; do
 		IDENTIFIER="${i#*=}"
 		shift
 		;;
-	--scan-type=*)
-		SCAN_TYPE="${i#*=}"
+	--trivy-output-file=*)
+		TRIVY_OUTPUT_FILE="${i#*=}"
 		shift
 		;;
-	--ref=*)
-		REF="${i#*=}"
-		shift
-		;;
-	--template=*)
-		TEMPLATE="${i#*=}"
-		shift
-		;;
-	--pkg-types=*)
-		TRIVY_PKG_TYPES="${i#*=}"
-		shift
-		;;
-	--severity=*)
-		TRIVY_SEVERITY="${i#*=}"
+	--mode=*)
+		MODE="${i#*=}"
 		shift
 		;;
 	--dry-run)
@@ -239,7 +218,7 @@ done
 declare -A REQUIRED_ARGS=(
 	["REPO"]="--repo"
 	["PR_NUMBER"]="--pr-number"
-	["REF"]="--ref"
+	["TRIVY_OUTPUT_FILE"]="--trivy-output-file"
 )
 
 for arg in "${!REQUIRED_ARGS[@]}"; do
@@ -248,8 +227,12 @@ for arg in "${!REQUIRED_ARGS[@]}"; do
 	fi
 done
 
-if [ "$SCAN_TYPE" != "image" ] && [ "$SCAN_TYPE" != "config" ]; then
-	error "Scan type must be either 'image' or 'config'"
+if [ "$MODE" != "recreate" ] && [ "$MODE" != "update" ]; then
+	error "Mode must be either 'recreate' or 'update'"
+fi
+
+if [ ! -f "$TRIVY_OUTPUT_FILE" ]; then
+	error "Output text file \"$TRIVY_OUTPUT_FILE\" does not exist. If the file is in a different location, you can set it with ${PINK}--trivy-output-file${END} or ${GREEN}\$TRIVY_OUTPUT_FILE${END}"
 fi
 
 if ! [[ "$REPO" =~ ^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$ ]]; then
@@ -319,7 +302,7 @@ fi
 
 # Trivy run
 # ------------------------------------------------------------
-OUTPUT=$(trivy "$SCAN_TYPE" "$REF" --format template --template "@$TEMPLATE")
+OUTPUT=$(cat "$TRIVY_OUTPUT_FILE")
 BODY=$(
 	cat <<-EOL
 		$TITLE

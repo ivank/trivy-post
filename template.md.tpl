@@ -4,6 +4,7 @@
 {{- range . }}
 {{- if (eq (len .Vulnerabilities) 0) }}
 {{- else }}
+
 #### {{ .Type | toString | escapeXML }}
 
 | Package | Vulnerability ID | Severity | Installed Version | Fixed Version | Links |
@@ -15,6 +16,7 @@
 {{- end }}
 {{- if (eq (len .Misconfigurations ) 0) }}
 {{- else }}
+
 #### {{ .Type | toString | escapeXML }}
 
 | Type | Misconf ID | Check | Severity | Message |
